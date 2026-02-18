@@ -11,13 +11,14 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - proxy
+      - traefik_public
+      - internal
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`dashboard.internal.fs0ciety.org`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.routers.dashboard.tls=true"
-      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.qbittorrent.middlewares=authentik@docker"
+      - "traefik.http.routers.dashboard.tls.certresolver=cloudflare"
       - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
       # Optional: Add Authentik middleware for SSO
       # - "traefik.http.routers.dashboard.middlewares=authentik@docker"
