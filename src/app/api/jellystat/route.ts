@@ -9,66 +9,66 @@ export async function GET() {
   }
 
   try {
-    const headers = {
+    const headers: Record<string, string> = {
       "x-api-token": apiKey,
       "Content-Type": "application/json",
     };
     const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
 
-    const [statsRes, watchedMoviesRes, watchedShowsRes] =
-      await Promise.allSettled([
-        fetch(`${url}/api/getLibraryCardStats`, opts),
-        fetch(`${url}/api/getMostViewedByType`, {
-          ...opts,
-          method: "POST",
-          body: JSON.stringify({ type: "Movie", days: 30 }),
-        }),
-        fetch(`${url}/api/getMostViewedByType`, {
-          ...opts,
-          method: "POST",
-          body: JSON.stringify({ type: "Series", days: 30 }),
-        }),
-      ]);
-
-    const libraries: { name: string; count: number; type: string }[] = [];
-    if (statsRes.status === "fulfilled" && statsRes.value.ok) {
-      const stats = await statsRes.value.json();
-      if (Array.isArray(stats)) {
-        for (const lib of stats) {
-          libraries.push({
-            name: lib.Name ?? lib.name ?? "Unknown",
-            count: lib.Library_Count ?? lib.library_count ?? 0,
-            type: lib.CollectionType ?? lib.collection_type ?? "unknown",
-          });
-        }
-      }
+    // Try library stats
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    let statsData: any[] = [];
+    const statsRes = await fetch(`${url}/api/getLibraryCardStats`, opts);
+    if (statsRes.ok) {
+      const body = await statsRes.json();
+      statsData = Array.isArray(body) ? body : [];
+    } else {
+      console.error("Jellystat library stats error:", statsRes.status, await statsRes.text().catch(() => ""));
     }
 
-    const topMovies: { title: string; plays: number }[] = [];
-    if (watchedMoviesRes.status === "fulfilled" && watchedMoviesRes.value.ok) {
-      const movies = await watchedMoviesRes.value.json();
-      if (Array.isArray(movies)) {
-        for (const m of movies.slice(0, 5)) {
-          topMovies.push({
-            title: m.Name ?? m.name ?? "Unknown",
-            plays: m.Total_Plays ?? m.total_plays ?? 0,
-          });
-        }
-      }
+    // Fetch most viewed movies
+    let moviesData: any[] = [];
+    const moviesRes = await fetch(`${url}/api/getMostViewedByType`, {
+      ...opts,
+      method: "POST",
+      body: JSON.stringify({ type: "Movie", days: 30 }),
+    });
+    if (moviesRes.ok) {
+      const body = await moviesRes.json();
+      moviesData = Array.isArray(body) ? body : [];
+    } else {
+      console.error("Jellystat movies error:", moviesRes.status, await moviesRes.text().catch(() => ""));
     }
 
-    const topShows: { title: string; plays: number }[] = [];
-    if (watchedShowsRes.status === "fulfilled" && watchedShowsRes.value.ok) {
-      const shows = await watchedShowsRes.value.json();
-      if (Array.isArray(shows)) {
-        for (const s of shows.slice(0, 5)) {
-          topShows.push({
-            title: s.Name ?? s.name ?? "Unknown",
-            plays: s.Total_Plays ?? s.total_plays ?? 0,
-          });
-        }
-      }
+    // Fetch most viewed shows
+    let showsData: any[] = [];
+    const showsRes = await fetch(`${url}/api/getMostViewedByType`, {
+      ...opts,
+      method: "POST",
+      body: JSON.stringify({ type: "Series", days: 30 }),
+    });
+    if (showsRes.ok) {
+      const body = await showsRes.json();
+      showsData = Array.isArray(body) ? body : [];
+    } else {
+      console.error("Jellystat shows error:", showsRes.status, await showsRes.text().catch(() => ""));
     }
+
+    const libraries = statsData.map((lib) => ({
+      name: (lib.Name ?? lib.name ?? lib.LibraryName ?? "Unknown") as string,
+      count: (lib.Library_Count ?? lib.library_count ?? lib.Count ?? 0) as number,
+      type: (lib.CollectionType ?? lib.collection_type ?? lib.Type ?? "unknown") as string,
+    }));
+
+    const topMovies = moviesData.slice(0, 5).map((m) => ({
+      title: (m.Name ?? m.name ?? m.Title ?? "Unknown") as string,
+      plays: (m.Total_Plays ?? m.total_plays ?? m.TotalPlays ?? m.Plays ?? 0) as number,
+    }));
+
+    const topShows = showsData.slice(0, 5).map((s) => ({
+      title: (s.Name ?? s.name ?? s.Title ?? "Unknown") as string,
+      plays: (s.Total_Plays ?? s.total_plays ?? s.TotalPlays ?? s.Plays ?? 0) as number,
+    }));
 
     return NextResponse.json({ libraries, topMovies, topShows });
   } catch (error) {

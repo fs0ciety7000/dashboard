@@ -36,12 +36,18 @@ export async function GET() {
         videos = stats.videos ?? 0;
         usage = stats.usage ?? 0;
       }
+    } else if (statsRes.status === "fulfilled") {
+      console.error("Immich stats error:", statsRes.value.status, await statsRes.value.text().catch(() => ""));
+    } else {
+      console.error("Immich stats fetch error:", (statsRes as PromiseRejectedResult).reason);
     }
 
     let version = "";
     if (infoRes.status === "fulfilled" && infoRes.value.ok) {
       const info = await infoRes.value.json();
       version = info.version ?? "";
+    } else if (infoRes.status === "fulfilled") {
+      console.error("Immich info error:", infoRes.value.status);
     }
 
     return NextResponse.json({ photos, videos, usage, users, version });

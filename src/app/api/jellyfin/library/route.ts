@@ -12,17 +12,24 @@ export async function GET() {
     const headers = { "X-Emby-Token": apiKey };
     const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
 
-    // Get virtual folders (libraries)
-    const libRes = await fetch(`${url}/Library/VirtualFolders`, opts);
-    if (!libRes.ok) {
+    // Get a userId first
+    const usersRes = await fetch(`${url}/Users`, opts);
+    if (!usersRes.ok) {
+      console.error("Jellyfin Users error:", usersRes.status);
       return NextResponse.json([], { status: 200 });
     }
+    const users = await usersRes.json();
+    const userId = users?.[0]?.Id;
 
-    const libraries = await libRes.json();
+    // Get virtual folders (libraries)
+    const libRes = await fetch(`${url}/Library/VirtualFolders`, opts);
+    const libraries = libRes.ok ? await libRes.json() : [];
+
     const stats: { label: string; count: number; type: string }[] = [];
 
-    // Get item counts per library type
-    const countRes = await fetch(`${url}/Items/Counts`, opts);
+    // Get item counts - try with userId first
+    const countUrl = userId ? `${url}/Items/Counts?userId=${userId}` : `${url}/Items/Counts`;
+    const countRes = await fetch(countUrl, opts);
     if (countRes.ok) {
       const counts = await countRes.json();
       if (counts.MovieCount) stats.push({ label: "Movies", count: counts.MovieCount, type: "movie" });
