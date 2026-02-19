@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import http from "node:http";
+export const dynamic = "force-dynamic";
 
 interface DockerContainer {
   Id: string;

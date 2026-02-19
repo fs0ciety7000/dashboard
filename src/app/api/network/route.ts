@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "child_process";
+export const dynamic = "force-dynamic";
 
 interface InterfaceStats {
   rxBytes: number;
