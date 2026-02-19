@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   Search,
@@ -8,52 +9,18 @@ import {
   XCircle,
   Film,
   MonitorPlay,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Demo data - in production, would come from Jellyseerr API
-const requests = [
-  {
-    id: 1,
-    title: "Dune: Part Three",
-    type: "movie",
-    status: "pending",
-    requestedBy: "admin",
-    date: "2 hours ago",
-  },
-  {
-    id: 2,
-    title: "Severance",
-    type: "tv",
-    status: "approved",
-    requestedBy: "user2",
-    date: "5 hours ago",
-  },
-  {
-    id: 3,
-    title: "The Bear S04",
-    type: "tv",
-    status: "available",
-    requestedBy: "admin",
-    date: "1 day ago",
-  },
-  {
-    id: 4,
-    title: "Mickey 17",
-    type: "movie",
-    status: "pending",
-    requestedBy: "user3",
-    date: "2 days ago",
-  },
-  {
-    id: 5,
-    title: "Andor S02",
-    type: "tv",
-    status: "processing",
-    requestedBy: "admin",
-    date: "3 days ago",
-  },
-];
+interface MediaRequest {
+  id: number;
+  title: string;
+  type: string;
+  status: string;
+  requestedBy: string;
+  date: string;
+}
 
 const statusConfig = {
   pending: {
@@ -89,6 +56,27 @@ const statusConfig = {
 };
 
 export function MediaRequestsWidget() {
+  const [requests, setRequests] = useState<MediaRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchRequests() {
+      try {
+        const res = await fetch("/api/jellyseerr");
+        if (res.ok) {
+          setRequests(await res.json());
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRequests();
+    const interval = setInterval(fetchRequests, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <GlassCard className="h-full" noPadding>
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -102,47 +90,57 @@ export function MediaRequestsWidget() {
       </div>
 
       <div className="space-y-0.5 px-3 pb-3">
-        {requests.map((req) => {
-          const config =
-            statusConfig[req.status as keyof typeof statusConfig] ||
-            statusConfig.pending;
-          const StatusIcon = config.icon;
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <p className="text-xs">No requests</p>
+          </div>
+        ) : (
+          requests.map((req) => {
+            const config =
+              statusConfig[req.status as keyof typeof statusConfig] ||
+              statusConfig.pending;
+            const StatusIcon = config.icon;
 
-          return (
-            <div
-              key={req.id}
-              className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
-            >
-              <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-                {req.type === "movie" ? (
-                  <Film className="w-4 h-4 text-violet-400" />
-                ) : (
-                  <MonitorPlay className="w-4 h-4 text-cyan-400" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-300 truncate">{req.title}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-slate-600">
-                    {req.requestedBy}
-                  </span>
-                  <span className="text-[10px] text-slate-700">·</span>
-                  <span className="text-[10px] text-slate-600">{req.date}</span>
+            return (
+              <div
+                key={req.id}
+                className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                  {req.type === "movie" ? (
+                    <Film className="w-4 h-4 text-violet-400" />
+                  ) : (
+                    <MonitorPlay className="w-4 h-4 text-cyan-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-300 truncate">{req.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-slate-600">
+                      {req.requestedBy}
+                    </span>
+                    <span className="text-[10px] text-slate-700">·</span>
+                    <span className="text-[10px] text-slate-600">{req.date}</span>
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded-md text-[10px]",
+                    config.bg,
+                    config.color
+                  )}
+                >
+                  <StatusIcon className="w-3 h-3" />
+                  <span>{config.label}</span>
                 </div>
               </div>
-              <div
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 rounded-md text-[10px]",
-                  config.bg,
-                  config.color
-                )}
-              >
-                <StatusIcon className="w-3 h-3" />
-                <span>{config.label}</span>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </GlassCard>
   );

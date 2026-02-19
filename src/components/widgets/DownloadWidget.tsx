@@ -1,53 +1,22 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { Download, ArrowDownToLine, Pause, Clock } from "lucide-react";
+import { Download, ArrowDownToLine, Pause, Clock, Loader2 } from "lucide-react";
 import { formatBytes, formatSpeed } from "@/lib/utils";
+import { settings } from "@/config/settings";
 
-// Demo data - in production, these would come from SABnzbd/qBittorrent APIs
-const downloads = [
-  {
-    id: 1,
-    name: "Movie.2024.2160p.WEB-DL.DDP5.1.x265",
-    size: 15_800_000_000,
-    downloaded: 12_640_000_000,
-    speed: 45_000_000,
-    eta: "4m 12s",
-    status: "downloading" as const,
-    source: "sabnzbd",
-  },
-  {
-    id: 2,
-    name: "TV.Show.S03E08.1080p.AMZN.WEB-DL",
-    size: 3_200_000_000,
-    downloaded: 960_000_000,
-    speed: 28_000_000,
-    eta: "2m 38s",
-    status: "downloading" as const,
-    source: "qbittorrent",
-  },
-  {
-    id: 3,
-    name: "Album.Artist.2024.FLAC",
-    size: 850_000_000,
-    downloaded: 850_000_000,
-    speed: 0,
-    eta: "0s",
-    status: "completed" as const,
-    source: "sabnzbd",
-  },
-  {
-    id: 4,
-    name: "Documentary.2024.4K.HDR",
-    size: 22_400_000_000,
-    downloaded: 0,
-    speed: 0,
-    eta: "—",
-    status: "paused" as const,
-    source: "qbittorrent",
-  },
-];
+interface DownloadItem {
+  id: string | number;
+  name: string;
+  size: number;
+  downloaded: number;
+  speed: number;
+  eta: string;
+  status: "downloading" | "completed" | "paused" | "queued";
+  source: string;
+}
 
 const statusIcons = {
   downloading: Download,
@@ -64,6 +33,27 @@ const statusColors = {
 } as const;
 
 export function DownloadWidget() {
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDownloads() {
+      try {
+        const res = await fetch("/api/downloads");
+        if (res.ok) {
+          setDownloads(await res.json());
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDownloads();
+    const interval = setInterval(fetchDownloads, settings.refreshIntervals.downloads);
+    return () => clearInterval(interval);
+  }, []);
+
   const activeDownloads = downloads.filter(
     (d) => d.status === "downloading"
   );
@@ -87,56 +77,66 @@ export function DownloadWidget() {
       </div>
 
       <div className="space-y-1 px-3 pb-3">
-        {downloads.map((dl) => {
-          const percent =
-            dl.size > 0 ? (dl.downloaded / dl.size) * 100 : 0;
-          const StatusIcon = statusIcons[dl.status];
-          const color = statusColors[dl.status];
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : downloads.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <p className="text-xs">No active downloads</p>
+          </div>
+        ) : (
+          downloads.map((dl) => {
+            const percent =
+              dl.size > 0 ? (dl.downloaded / dl.size) * 100 : 0;
+            const StatusIcon = statusIcons[dl.status];
+            const color = statusColors[dl.status];
 
-          return (
-            <div
-              key={dl.id}
-              className="px-2 py-3 rounded-lg hover:bg-white/[0.02] transition-colors"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-start gap-2 flex-1 min-w-0">
-                  <StatusIcon className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-slate-300 truncate">
-                      {dl.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] text-slate-600 font-mono">
-                        {formatBytes(dl.downloaded)} / {formatBytes(dl.size)}
-                      </span>
-                      {dl.status === "downloading" && (
-                        <>
-                          <span className="text-[10px] text-slate-700">·</span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {formatSpeed(dl.speed)}
-                          </span>
-                          <span className="text-[10px] text-slate-700">·</span>
-                          <span className="text-[10px] text-slate-500">
-                            ETA {dl.eta}
-                          </span>
-                        </>
-                      )}
+            return (
+              <div
+                key={dl.id}
+                className="px-2 py-3 rounded-lg hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <StatusIcon className="w-3.5 h-3.5 text-slate-500 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-slate-300 truncate">
+                        {dl.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-slate-600 font-mono">
+                          {formatBytes(dl.downloaded)} / {formatBytes(dl.size)}
+                        </span>
+                        {dl.status === "downloading" && (
+                          <>
+                            <span className="text-[10px] text-slate-700">·</span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {formatSpeed(dl.speed)}
+                            </span>
+                            <span className="text-[10px] text-slate-700">·</span>
+                            <span className="text-[10px] text-slate-500">
+                              ETA {dl.eta}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <span className="text-[10px] text-slate-600 uppercase font-mono flex-shrink-0 ml-2">
+                    {dl.source}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-600 uppercase font-mono flex-shrink-0 ml-2">
-                  {dl.source}
-                </span>
+                <ProgressBar
+                  value={percent}
+                  color={color}
+                  size="sm"
+                  animated={dl.status === "downloading"}
+                />
               </div>
-              <ProgressBar
-                value={percent}
-                color={color}
-                size="sm"
-                animated={dl.status === "downloading"}
-              />
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </GlassCard>
   );

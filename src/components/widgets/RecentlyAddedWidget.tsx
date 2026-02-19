@@ -1,60 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Plus, Film, MonitorPlay, Music } from "lucide-react";
+import { Plus, Film, MonitorPlay, Music, Loader2 } from "lucide-react";
+import { formatBytes } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-// Demo data - in production, would come from Jellyfin API
-const recentItems = [
-  {
-    id: 1,
-    title: "Oppenheimer",
-    type: "movie",
-    addedDate: "Today",
-    quality: "4K HDR",
-    size: "78.4 GB",
-  },
-  {
-    id: 2,
-    title: "The Last of Us S02E05",
-    type: "tv",
-    addedDate: "Today",
-    quality: "1080p",
-    size: "3.2 GB",
-  },
-  {
-    id: 3,
-    title: "Radiohead - OK Computer",
-    type: "music",
-    addedDate: "Yesterday",
-    quality: "FLAC",
-    size: "892 MB",
-  },
-  {
-    id: 4,
-    title: "Civil War",
-    type: "movie",
-    addedDate: "Yesterday",
-    quality: "4K DV",
-    size: "65.1 GB",
-  },
-  {
-    id: 5,
-    title: "Shogun S01E10",
-    type: "tv",
-    addedDate: "2 days ago",
-    quality: "4K HDR",
-    size: "12.8 GB",
-  },
-  {
-    id: 6,
-    title: "Challengers",
-    type: "movie",
-    addedDate: "3 days ago",
-    quality: "1080p",
-    size: "8.9 GB",
-  },
-];
+interface RecentItem {
+  id: string;
+  title: string;
+  type: string;
+  addedDate: string;
+  quality: string;
+  size: number;
+}
 
 const typeIcons = {
   movie: Film,
@@ -69,6 +28,27 @@ const typeColors = {
 };
 
 export function RecentlyAddedWidget() {
+  const [items, setItems] = useState<RecentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchRecent() {
+      try {
+        const res = await fetch("/api/jellyfin/recent");
+        if (res.ok) {
+          setItems(await res.json());
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchRecent();
+    const interval = setInterval(fetchRecent, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <GlassCard className="h-full" noPadding>
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -79,42 +59,58 @@ export function RecentlyAddedWidget() {
       </div>
 
       <div className="space-y-0.5 px-3 pb-3">
-        {recentItems.map((item, i) => {
-          const Icon = typeIcons[item.type as keyof typeof typeIcons] || Film;
-          const colors =
-            typeColors[item.type as keyof typeof typeColors] || typeColors.movie;
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : items.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <p className="text-xs">No recent items</p>
+          </div>
+        ) : (
+          items.map((item, i) => {
+            const Icon = typeIcons[item.type as keyof typeof typeIcons] || Film;
+            const colors =
+              typeColors[item.type as keyof typeof typeColors] || typeColors.movie;
 
-          return (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
-            >
-              <div
-                className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${colors}`}
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
               >
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-300 truncate">{item.title}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-slate-600">
-                    {item.addedDate}
-                  </span>
-                  <span className="text-[10px] text-slate-700">·</span>
-                  <span className="text-[10px] text-slate-600 font-mono">
-                    {item.quality}
-                  </span>
+                <div
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${colors}`}
+                >
+                  <Icon className="w-4 h-4" />
                 </div>
-              </div>
-              <span className="text-[10px] text-slate-600 font-mono flex-shrink-0">
-                {item.size}
-              </span>
-            </motion.div>
-          );
-        })}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-300 truncate">{item.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-slate-600">
+                      {item.addedDate}
+                    </span>
+                    {item.quality && (
+                      <>
+                        <span className="text-[10px] text-slate-700">·</span>
+                        <span className="text-[10px] text-slate-600 font-mono">
+                          {item.quality}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {item.size > 0 && (
+                  <span className="text-[10px] text-slate-600 font-mono flex-shrink-0">
+                    {formatBytes(item.size)}
+                  </span>
+                )}
+              </motion.div>
+            );
+          })
+        )}
       </div>
     </GlassCard>
   );

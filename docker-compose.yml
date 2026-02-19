@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     container_name: fs0ciety-dashboard
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1

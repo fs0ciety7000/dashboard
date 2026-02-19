@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   Box,
@@ -7,110 +8,20 @@ import {
   XCircle,
   AlertTriangle,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { formatBytes } from "@/lib/utils";
 
-// Demo data - in production, would come from Docker API
-const containers = [
-  {
-    name: "traefik",
-    image: "traefik:v3.2",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.3%",
-    memory: 85_000_000,
-  },
-  {
-    name: "jellyfin",
-    image: "jellyfin/jellyfin:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "12.4%",
-    memory: 2_200_000_000,
-  },
-  {
-    name: "sonarr",
-    image: "linuxserver/sonarr:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "1.2%",
-    memory: 320_000_000,
-  },
-  {
-    name: "radarr",
-    image: "linuxserver/radarr:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.8%",
-    memory: 280_000_000,
-  },
-  {
-    name: "sabnzbd",
-    image: "linuxserver/sabnzbd:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "5.6%",
-    memory: 450_000_000,
-  },
-  {
-    name: "authentik",
-    image: "ghcr.io/goauthentik/server:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "2.1%",
-    memory: 680_000_000,
-  },
-  {
-    name: "adguard",
-    image: "adguard/adguardhome:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.1%",
-    memory: 52_000_000,
-  },
-  {
-    name: "immich",
-    image: "ghcr.io/immich-app/immich:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "3.4%",
-    memory: 1_200_000_000,
-  },
-  {
-    name: "qbittorrent",
-    image: "linuxserver/qbittorrent:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "1.8%",
-    memory: 180_000_000,
-  },
-  {
-    name: "prometheus",
-    image: "prom/prometheus:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.9%",
-    memory: 420_000_000,
-  },
-  {
-    name: "grafana",
-    image: "grafana/grafana:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.5%",
-    memory: 180_000_000,
-  },
-  {
-    name: "vaultwarden",
-    image: "vaultwarden/server:latest",
-    state: "running",
-    uptime: "14d 3h",
-    cpu: "0.1%",
-    memory: 45_000_000,
-  },
-];
+interface Container {
+  name: string;
+  image: string;
+  state: string;
+  uptime: string;
+  cpu: string;
+  memory: number;
+}
 
 const stateConfig = {
   running: {
@@ -118,6 +29,7 @@ const stateConfig = {
     color: "text-emerald-400",
     dot: "bg-emerald-400",
   },
+  exited: { icon: XCircle, color: "text-red-400", dot: "bg-red-400" },
   stopped: { icon: XCircle, color: "text-red-400", dot: "bg-red-400" },
   restarting: {
     icon: RotateCcw,
@@ -132,6 +44,27 @@ const stateConfig = {
 };
 
 export function DockerWidget() {
+  const [containers, setContainers] = useState<Container[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchContainers() {
+      try {
+        const res = await fetch("/api/docker");
+        if (res.ok) {
+          setContainers(await res.json());
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchContainers();
+    const interval = setInterval(fetchContainers, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
   const running = containers.filter((c) => c.state === "running").length;
   const total = containers.length;
 
@@ -151,46 +84,56 @@ export function DockerWidget() {
       </div>
 
       <div className="max-h-[400px] overflow-y-auto px-3 pb-3">
-        <div className="space-y-0.5">
-          {containers.map((container, i) => {
-            const config =
-              stateConfig[container.state as keyof typeof stateConfig] ||
-              stateConfig.error;
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : containers.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <p className="text-xs">No containers found</p>
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {containers.map((container, i) => {
+              const config =
+                stateConfig[container.state as keyof typeof stateConfig] ||
+                stateConfig.error;
 
-            return (
-              <motion.div
-                key={container.name}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.02 }}
-                className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.02] transition-colors"
-              >
-                <div
-                  className={cn(
-                    "w-2 h-2 rounded-full flex-shrink-0",
-                    config.dot
-                  )}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-300 truncate">
-                    {container.name}
-                  </p>
-                  <p className="text-[10px] text-slate-600 font-mono truncate">
-                    {container.image}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <span className="text-[10px] text-slate-500 font-mono w-12 text-right">
-                    {container.cpu}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono w-16 text-right">
-                    {formatBytes(container.memory)}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+              return (
+                <motion.div
+                  key={container.name}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.02 }}
+                  className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.02] transition-colors"
+                >
+                  <div
+                    className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      config.dot
+                    )}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-300 truncate">
+                      {container.name}
+                    </p>
+                    <p className="text-[10px] text-slate-600 font-mono truncate">
+                      {container.image}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-[10px] text-slate-500 font-mono w-12 text-right">
+                      {container.cpu}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono w-16 text-right">
+                      {formatBytes(container.memory)}
+                    </span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </GlassCard>
   );

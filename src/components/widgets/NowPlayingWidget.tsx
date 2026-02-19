@@ -1,38 +1,45 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Play, Pause, SkipForward, Tv, User } from "lucide-react";
+import { Play, Pause, SkipForward, Tv, User, Loader2 } from "lucide-react";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 
-// Demo data - in production, would come from Jellyfin API
-const sessions = [
-  {
-    id: 1,
-    user: "admin",
-    title: "Breaking Bad",
-    episode: "S05E16 - Felina",
-    type: "Series",
-    progress: 67,
-    state: "playing" as const,
-    transcoding: false,
-    device: "Apple TV",
-    quality: "4K HDR",
-  },
-  {
-    id: 2,
-    user: "user2",
-    title: "Blade Runner 2049",
-    episode: null,
-    type: "Movie",
-    progress: 23,
-    state: "playing" as const,
-    transcoding: true,
-    device: "Chrome",
-    quality: "1080p",
-  },
-];
+interface Session {
+  id: string;
+  user: string;
+  title: string;
+  episode: string | null;
+  type: string;
+  progress: number;
+  state: "playing" | "paused";
+  transcoding: boolean;
+  device: string;
+  quality: string;
+}
 
 export function NowPlayingWidget() {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchSessions() {
+      try {
+        const res = await fetch("/api/jellyfin/sessions");
+        if (res.ok) {
+          setSessions(await res.json());
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <GlassCard className="h-full" noPadding>
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
@@ -46,14 +53,17 @@ export function NowPlayingWidget() {
       </div>
 
       <div className="space-y-1 px-3 pb-3">
-        {sessions.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-slate-600">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : sessions.length > 0 ? (
           sessions.map((session) => (
             <div
               key={session.id}
               className="px-3 py-3 rounded-lg bg-white/[0.01] border border-white/[0.03] hover:bg-white/[0.03] transition-colors"
             >
               <div className="flex items-start gap-3">
-                {/* Poster placeholder */}
                 <div className="w-12 h-16 rounded-md bg-gradient-to-br from-violet-500/20 to-purple-600/20 flex items-center justify-center flex-shrink-0 border border-white/[0.06]">
                   {session.state === "playing" ? (
                     <Play className="w-4 h-4 text-violet-400" />
