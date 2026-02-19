@@ -86,23 +86,29 @@ export async function GET() {
       return true;
     });
 
-    const disks = uniqueMounts
+    // Hide /boot and /host/boot
+    const filtered = uniqueMounts.filter(
+      (m) => !m.mount.match(/^(\/host)?\/boot/)
+    );
+
+    const disks = filtered
       .map((m) => {
         const stats = getStatfs(m.mount);
         if (!stats || stats.total < 100_000_000) return null; // Skip < 100MB
 
-        // Generate label
-        let label = m.mount;
-        if (m.mount === "/") label = "System";
-        else if (m.mount.startsWith("/mnt/"))
-          label = m.mount.replace("/mnt/", "").replace(/^\w/, (c) => c.toUpperCase());
-        else if (m.mount.startsWith("/media/"))
-          label = m.mount.replace("/media/", "").replace(/^\w/, (c) => c.toUpperCase());
-        else if (m.mount.startsWith("/srv/"))
-          label = m.mount.replace("/srv/", "").replace(/^\w/, (c) => c.toUpperCase());
+        // Generate label - strip /host prefix for display
+        const displayMount = m.mount.replace(/^\/host/, "") || "/";
+        let label = displayMount;
+        if (displayMount === "/") label = "System";
+        else if (displayMount.startsWith("/mnt/"))
+          label = displayMount.replace("/mnt/", "").replace(/^\w/, (c) => c.toUpperCase());
+        else if (displayMount.startsWith("/media/"))
+          label = displayMount.replace("/media/", "").replace(/^\w/, (c) => c.toUpperCase());
+        else if (displayMount.startsWith("/srv/"))
+          label = displayMount.replace("/srv/", "").replace(/^\w/, (c) => c.toUpperCase());
 
         return {
-          mount: m.mount,
+          mount: displayMount,
           device: m.device,
           filesystem: m.filesystem,
           used: stats.used,
@@ -110,9 +116,31 @@ export async function GET() {
           label,
         };
       })
-      .filter(Boolean);
+      .filter(Boolean) as { mount: string; device: string; filesystem: string; used: number; total: number; label: string }[];
 
-    return NextResponse.json(disks);
+    // Merge storage disks: /, /mnt/disk2, /mnt/disk3 → "Storage"
+    const storagePaths = new Set(["/", "/mnt/disk2", "/mnt/disk3"]);
+    const storageDiskEntries = disks.filter((d) => storagePaths.has(d.mount));
+    const otherDisks = disks.filter((d) => !storagePaths.has(d.mount));
+
+    const result = [];
+
+    if (storageDiskEntries.length > 0) {
+      const totalUsed = storageDiskEntries.reduce((acc, d) => acc + d.used, 0);
+      const totalSize = storageDiskEntries.reduce((acc, d) => acc + d.total, 0);
+      result.push({
+        mount: "/storage",
+        device: storageDiskEntries.map((d) => d.device).join(", "),
+        filesystem: storageDiskEntries[0].filesystem,
+        used: totalUsed,
+        total: totalSize,
+        label: "Storage",
+      });
+    }
+
+    result.push(...otherDisks);
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Disk stats error:", error);
     return NextResponse.json([], { status: 500 });
