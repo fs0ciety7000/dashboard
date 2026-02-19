@@ -56,7 +56,7 @@ export async function GET() {
     const key = process.env.JELLYSTAT_API_KEY;
     results.jellystat_env = { url: url ?? "MISSING", key: key ? `${key.slice(0, 4)}...` : "MISSING" };
     if (url && key) {
-      const res = await fetch(`${url}/api/getLibraryCardStats`, {
+      const res = await fetch(`${url}/stats/getLibraryCardStats`, {
         headers: { "x-api-token": key, "Content-Type": "application/json" },
         signal: AbortSignal.timeout(8000),
       });
