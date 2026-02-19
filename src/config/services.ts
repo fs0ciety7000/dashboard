@@ -372,6 +372,25 @@ export const services: ServiceConfig[] = [
     description: "Poster Management",
     internal: true,
   },
+  {
+    id: "beszel",
+    name: "Beszel",
+    url: "https://beszel.internal.fs0ciety.org",
+    icon: "Gauge",
+    port: 8090,
+    category: "monitoring",
+    description: "Server Monitoring",
+    internal: true,
+  },
+  {
+    id: "fs0ciety-website",
+    name: "fs0ciety.org",
+    url: "https://fs0ciety.org",
+    icon: "Globe",
+    port: 443,
+    category: "other",
+    description: "Personal Website",
+  },
 ];
 
 export const categoryLabels: Record<ServiceCategory, string> = {
@@ -394,4 +413,25 @@ export function getServicesByCategory(
   category: ServiceCategory
 ): ServiceConfig[] {
   return services.filter((s) => s.category === category);
+}
+
+const ICON_CDN = "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/svg";
+const iconSlugOverrides: Record<string, string | null> = {
+  "adguard": "adguard-home",
+  "paperless": "paperless-ngx",
+  "stirling-pdf": "stirling-pdf",
+  "it-tools": "it-tools",
+  "uptime-kuma": "uptime-kuma",
+  "fs0ciety-website": null,
+  "huntarr": null,
+  "posterizarr": null,
+  "convertx": null,
+};
+
+export function getServiceIconUrl(serviceId: string): string | null {
+  if (serviceId in iconSlugOverrides) {
+    const slug = iconSlugOverrides[serviceId];
+    return slug ? `${ICON_CDN}/${slug}.svg` : null;
+  }
+  return `${ICON_CDN}/${serviceId}.svg`;
 }

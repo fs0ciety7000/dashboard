@@ -61,6 +61,14 @@ export async function GET() {
           if (item.Name) episode += ` - ${item.Name}`;
         }
 
+        // Build poster URL - use series image for episodes, primary image for movies
+        const imageItemId = item.SeriesId || item.Id;
+        const imageTags = item.ImageTags as Record<string, string> | undefined;
+        const imageTag = (item.SeriesPrimaryImageTag as string) || imageTags?.Primary || null;
+        const poster = imageTag
+          ? `/api/jellyfin/image?id=${imageItemId}&tag=${imageTag}`
+          : null;
+
         return {
           id: s.Id,
           user: (s.UserName as string) || "Unknown",
@@ -72,6 +80,7 @@ export async function GET() {
           transcoding: isTranscoding,
           device: (s.DeviceName as string) || "Unknown",
           quality,
+          poster,
         };
       });
 

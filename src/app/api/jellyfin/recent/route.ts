@@ -51,11 +51,13 @@ export async function GET() {
                 : "movie";
 
         // Build title
-        let title = (item.Name as string) || "Unknown";
+        let title = "Unknown";
         if (item.SeriesName) {
           const s_num = item.ParentIndexNumber ?? "";
           const e_num = item.IndexNumber ?? "";
           title = `${item.SeriesName} S${String(s_num).padStart(2, "0")}E${String(e_num).padStart(2, "0")}`;
+        } else {
+          title = (item.Name as string) || (item.OriginalTitle as string) || (item.AlbumArtist as string) || "Unknown";
         }
 
         // Get quality from media streams

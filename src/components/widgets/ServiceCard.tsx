@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { DynamicIcon } from "@/components/ui/DynamicIcon";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { ServiceConfig, ServiceStatus } from "@/config/services";
+import { getServiceIconUrl } from "@/config/services";
 import { ExternalLink, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -33,6 +35,8 @@ export function ServiceCard({ service, status, index }: ServiceCardProps) {
   const accent = categoryAccents[service.category] || categoryAccents.other;
   const iconColor =
     categoryIconColors[service.category] || categoryIconColors.other;
+  const iconUrl = getServiceIconUrl(service.id);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <motion.a
@@ -60,7 +64,18 @@ export function ServiceCard({ service, status, index }: ServiceCardProps) {
             "bg-white/[0.04] border border-white/[0.06]"
           )}
         >
-          <DynamicIcon name={service.icon} className={cn("w-5 h-5", iconColor)} />
+          {iconUrl && !imgError ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={iconUrl}
+              alt={service.name}
+              className="w-6 h-6"
+              loading="lazy"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <DynamicIcon name={service.icon} className={cn("w-5 h-5", iconColor)} />
+          )}
         </div>
         <StatusBadge status={status} />
       </div>
