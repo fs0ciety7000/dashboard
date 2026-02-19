@@ -12,13 +12,27 @@ export async function GET() {
     const headers = { "X-Emby-Token": apiKey };
     const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
 
+    // First get a userId (required for /Items/Latest)
+    const usersRes = await fetch(`${url}/Users`, opts);
+    if (!usersRes.ok) {
+      console.error("Jellyfin Users error:", usersRes.status);
+      return NextResponse.json([]);
+    }
+    const users = await usersRes.json();
+    const userId = users?.[0]?.Id;
+    if (!userId) {
+      console.error("Jellyfin: no users found");
+      return NextResponse.json([]);
+    }
+
     // Get recently added items across all libraries
     const res = await fetch(
-      `${url}/Items/Latest?Limit=10&Fields=MediaSources,MediaStreams,DateCreated`,
+      `${url}/Users/${userId}/Items/Latest?Limit=10&Fields=MediaSources,MediaStreams,DateCreated`,
       opts
     );
 
     if (!res.ok) {
+      console.error("Jellyfin recent error:", res.status);
       return NextResponse.json([]);
     }
 

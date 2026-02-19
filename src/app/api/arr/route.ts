@@ -30,6 +30,9 @@ async function fetchArr(service: ArrServiceConfig) {
     let episodes: number | null = null;
     let missing = 0;
 
+    if (statsRes.status === "fulfilled" && !statsRes.value.ok) {
+      console.error(`${service.name} stats error:`, statsRes.value.status, await statsRes.value.text().catch(() => ""));
+    }
     if (statsRes.status === "fulfilled" && statsRes.value.ok) {
       const items = await statsRes.value.json();
       if (Array.isArray(items)) {

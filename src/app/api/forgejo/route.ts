@@ -9,34 +9,47 @@ export async function GET() {
   }
 
   try {
-    const headers = { Authorization: `token ${token}` };
-    const res = await fetch(
-      `${url}/api/v1/repos/search?sort=updated&order=desc&limit=15`,
-      { headers, signal: AbortSignal.timeout(10000) }
+    const headers: Record<string, string> = { Authorization: `token ${token}` };
+    const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
+
+    // Try user repos first (most reliable for personal instances)
+    let res = await fetch(
+      `${url}/api/v1/user/repos?sort=updated&order=desc&limit=15`,
+      opts
     );
 
+    // Fallback to repos/search if user endpoint fails
     if (!res.ok) {
-      console.error("Forgejo HTTP error:", res.status);
+      console.error("Forgejo user/repos error:", res.status, await res.text().catch(() => ""));
+      res = await fetch(
+        `${url}/api/v1/repos/search?sort=updated&order=desc&limit=15`,
+        { headers, signal: AbortSignal.timeout(10000) }
+      );
+    }
+
+    if (!res.ok) {
+      console.error("Forgejo repos/search error:", res.status);
       return NextResponse.json([]);
     }
 
     const data = await res.json();
-    const repos = (data.data ?? data ?? []).map(
-      (repo: Record<string, unknown>) => ({
-        id: repo.id,
-        name: repo.name,
-        fullName: repo.full_name,
-        description: repo.description || "",
-        language: repo.language || null,
-        stars: repo.stars_count ?? 0,
-        forks: repo.forks_count ?? 0,
-        private: repo.private ?? false,
-        updatedAt: repo.updated_at ?? "",
-        htmlUrl: repo.html_url ?? "",
-        owner: (repo.owner as Record<string, unknown>)?.login ?? "unknown",
-        avatar: (repo.owner as Record<string, unknown>)?.avatar_url ?? "",
-      })
-    );
+    // /user/repos returns array directly, /repos/search returns { data: [...] }
+    const rawRepos = Array.isArray(data) ? data : (data.data ?? []);
+
+    const repos = rawRepos.map((repo: Record<string, unknown>) => ({
+      id: repo.id,
+      name: repo.name,
+      fullName: repo.full_name,
+      description: repo.description || "",
+      language: repo.language || null,
+      stars: repo.stars_count ?? 0,
+      forks: repo.forks_count ?? 0,
+      private: repo.private ?? false,
+      updatedAt: repo.updated_at ?? "",
+      htmlUrl: repo.html_url ?? "",
+      owner: (repo.owner as Record<string, unknown>)?.login ?? "unknown",
+      avatar: (repo.owner as Record<string, unknown>)?.avatar_url ?? "",
+    }));
 
     return NextResponse.json(repos);
   } catch (error) {
