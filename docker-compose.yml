@@ -1,5 +1,5 @@
 services:
-  dashboard:
+  fs0ciety-dashboard:
     build:
       context: .
       dockerfile: Dockerfile
@@ -8,8 +8,8 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
-    ports:
-      - "3000:3000"
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
     networks:
       - traefik_public
       - internal
@@ -21,7 +21,7 @@ services:
       - "traefik.http.routers.dashboard.tls.certresolver=cloudflare"
       - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
       # Optional: Add Authentik middleware for SSO
-      # - "traefik.http.routers.dashboard.middlewares=authentik@docker"
+      # - "traefik.http.routers.fs-dash.middlewares=authentik@docker"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -30,5 +30,5 @@ services:
       start_period: 10s
 
 networks:
-  proxy:
+  traefik_public:
     external: true
