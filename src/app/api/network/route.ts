@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "child_process";
 
 interface InterfaceStats {
@@ -8,8 +8,13 @@ interface InterfaceStats {
 }
 
 function readNetDev(): Record<string, InterfaceStats> {
+  // Prefer host's /proc/net/dev via /host mount
+  const netDevPath = existsSync("/host/proc/net/dev")
+    ? "/host/proc/net/dev"
+    : "/proc/net/dev";
+
   try {
-    const data = readFileSync("/proc/net/dev", "utf-8");
+    const data = readFileSync(netDevPath, "utf-8");
     const lines = data.split("\n").slice(2); // Skip headers
     const result: Record<string, InterfaceStats> = {};
 
@@ -17,7 +22,9 @@ function readNetDev(): Record<string, InterfaceStats> {
       const parts = line.trim().split(/\s+/);
       if (parts.length < 10) continue;
       const iface = parts[0].replace(":", "");
-      if (iface === "lo") continue; // Skip loopback
+      if (iface === "lo") continue;
+      // Skip Docker/veth interfaces
+      if (iface.startsWith("veth") || iface.startsWith("br-") || iface === "docker0") continue;
       result[iface] = {
         rxBytes: parseInt(parts[1], 10),
         txBytes: parseInt(parts[9], 10),
@@ -38,15 +45,15 @@ function safeExec(cmd: string, fallback: string = ""): string {
 }
 
 function getDefaultInterface(): { name: string; ip: string; gateway: string } {
-  // Try to get default route interface
   const route = safeExec("ip route | grep default | head -1");
   const ifaceMatch = route.match(/dev\s+(\S+)/);
   const gwMatch = route.match(/via\s+(\S+)/);
   const iface = ifaceMatch?.[1] || "eth0";
   const gateway = gwMatch?.[1] || "—";
 
-  // Get IP of that interface
-  const addrOutput = safeExec(`ip -4 addr show ${iface} 2>/dev/null | grep inet | head -1`);
+  const addrOutput = safeExec(
+    `ip -4 addr show ${iface} 2>/dev/null | grep inet | head -1`
+  );
   const ipMatch = addrOutput.match(/inet\s+(\S+)/);
   const ip = ipMatch?.[1]?.split("/")[0] || "—";
 
@@ -54,7 +61,8 @@ function getDefaultInterface(): { name: string; ip: string; gateway: string } {
 }
 
 // Store previous reading for rate calculation
-let prevStats: { time: number; data: Record<string, InterfaceStats> } | null = null;
+let prevStats: { time: number; data: Record<string, InterfaceStats> } | null =
+  null;
 
 export async function GET() {
   try {

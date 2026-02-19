@@ -6,6 +6,7 @@ import { MediaStatsWidget } from "@/components/widgets/MediaStatsWidget";
 import { MediaRequestsWidget } from "@/components/widgets/MediaRequestsWidget";
 import { RecentlyAddedWidget } from "@/components/widgets/RecentlyAddedWidget";
 import { ArrStatsWidget } from "@/components/widgets/ArrStatsWidget";
+import { JellystatWidget } from "@/components/widgets/JellystatWidget";
 import { motion } from "framer-motion";
 
 export default function MediaPage() {
@@ -51,6 +52,13 @@ export default function MediaPage() {
         </div>
         <div className="col-span-12 lg:col-span-6">
           <RecentlyAddedWidget />
+        </div>
+      </div>
+
+      {/* Jellystat */}
+      <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12">
+          <JellystatWidget />
         </div>
       </div>
     </motion.div>

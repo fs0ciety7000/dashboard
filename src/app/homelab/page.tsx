@@ -4,6 +4,8 @@ import { SystemDetailWidget } from "@/components/widgets/SystemDetailWidget";
 import { DiskWidget } from "@/components/widgets/DiskWidget";
 import { NetworkWidget } from "@/components/widgets/NetworkWidget";
 import { DockerWidget } from "@/components/widgets/DockerWidget";
+import { ImmichWidget } from "@/components/widgets/ImmichWidget";
+import { ForgejoWidget } from "@/components/widgets/ForgejoWidget";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { DynamicIcon } from "@/components/ui/DynamicIcon";
 import { motion } from "framer-motion";
@@ -146,6 +148,16 @@ export default function HomelabPage() {
         </div>
         <div className="col-span-12 lg:col-span-4">
           <DockerWidget />
+        </div>
+      </div>
+
+      {/* Immich + Forgejo */}
+      <div className="grid grid-cols-12 gap-5">
+        <div className="col-span-12 lg:col-span-4">
+          <ImmichWidget />
+        </div>
+        <div className="col-span-12 lg:col-span-8">
+          <ForgejoWidget />
         </div>
       </div>
     </motion.div>
