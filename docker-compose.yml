@@ -12,13 +12,14 @@ services:
       - PORT=3000
     networks:
       - traefik_public
+      - internal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.fs-dash.rule=Host(`dashboard.internal.fs0ciety.org`)"
-      - "traefik.http.routers.fs-dash.entrypoints=websecure"
-      - "traefik.http.routers.fs-dash.tls=true"
-      - "traefik.http.routers.fs-dash.tls.certresolver=cloudflare"
-      - "traefik.http.services.fs-dash.loadbalancer.server.port=3000"
+      - "traefik.http.routers.dashboard.rule=Host(`dashboard.internal.fs0ciety.org`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.qbittorrent.middlewares=authentik@docker"
+      - "traefik.http.routers.dashboard.tls.certresolver=cloudflare"
+      - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
       # Optional: Add Authentik middleware for SSO
       # - "traefik.http.routers.fs-dash.middlewares=authentik@docker"
     healthcheck:
