@@ -17,11 +17,10 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`dashboard.internal.fs0ciety.org`)"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
-      - "traefik.http.routers.dashboard.middlewares=authentik@docker"
       - "traefik.http.routers.dashboard.tls.certresolver=cloudflare"
       - "traefik.http.services.dashboard.loadbalancer.server.port=3000"
       # Optional: Add Authentik middleware for SSO
-      # - "traefik.http.routers.fs-dash.middlewares=authentik@docker"
+      # - "traefik.http.routers.dashboard.middlewares=authentik@docker"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
