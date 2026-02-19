@@ -27,7 +27,7 @@ async function fetchArr(service: ArrServiceConfig) {
           ? fetch(`${base}/api/${service.apiVersion}/movie`, opts)
           : fetch(`${base}/api/${service.apiVersion}/artist`, opts),
       fetch(`${base}/api/${service.apiVersion}/queue?pageSize=1`, opts),
-      fetch(`${base}/api/${service.apiVersion}/rootfolder`, opts),
+      fetch(`${base}/api/${service.apiVersion}/diskspace`, opts),
     ]);
 
     let monitored = 0;

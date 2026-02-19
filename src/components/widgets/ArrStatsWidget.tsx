@@ -97,9 +97,11 @@ export function ArrStatsWidget() {
                         {arr.name}
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {formatBytes(arr.diskUsage)}
-                    </span>
+                    {arr.diskUsage > 0 && (
+                      <span className="text-[10px] text-slate-500 font-mono">
+                        {formatBytes(arr.diskUsage)}
+                      </span>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -133,15 +135,17 @@ export function ArrStatsWidget() {
             })}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <HardDrive className="w-3.5 h-3.5 text-slate-500" />
-              <span className="text-[10px] text-slate-500">Total library size</span>
+          {stats.some((a) => a.diskUsage > 0) && (
+            <div className="mt-4 pt-4 border-t border-white/[0.04] flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <HardDrive className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-[10px] text-slate-500">Total library size</span>
+              </div>
+              <span className="text-xs font-mono text-white">
+                {formatBytes(stats.reduce((acc, a) => acc + a.diskUsage, 0))}
+              </span>
             </div>
-            <span className="text-xs font-mono text-white">
-              {formatBytes(stats.reduce((acc, a) => acc + a.diskUsage, 0))}
-            </span>
-          </div>
+          )}
         </>
       )}
     </GlassCard>
