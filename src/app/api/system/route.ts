@@ -1,97 +1,146 @@
 import { NextResponse } from "next/server";
-import { execSync } from "child_process";
+export const dynamic = "force-dynamic";
 
-function safeExec(cmd: string, fallback: string = ""): string {
+// Cache Beszel auth token
+let beszelToken: string | null = null;
+let beszelTokenExpiry = 0;
+
+async function getBeszelToken(): Promise<string | null> {
+  const url = process.env.BESZEL_URL?.replace(/\/+$/, "");
+  const email = process.env.BESZEL_EMAIL;
+  const password = process.env.BESZEL_PASSWORD;
+
+  if (!url || !email || !password) return null;
+
+  // Re-use cached token if still valid (refresh 10 min before expiry)
+  if (beszelToken && Date.now() < beszelTokenExpiry - 600000) {
+    return beszelToken;
+  }
+
   try {
-    return execSync(cmd, { timeout: 3000, encoding: "utf-8" }).trim();
-  } catch {
-    return fallback;
+    const res = await fetch(`${url}/api/collections/users/auth-with-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identity: email, password }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!res.ok) {
+      console.error("Beszel auth failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    beszelToken = data.token;
+    // PocketBase tokens are valid for ~2 weeks, refresh every hour
+    beszelTokenExpiry = Date.now() + 3600000;
+    return beszelToken;
+  } catch (error) {
+    console.error("Beszel auth error:", error);
+    return null;
+  }
+}
+
+async function fetchBeszelStats() {
+  const url = process.env.BESZEL_URL?.replace(/\/+$/, "");
+  const token = await getBeszelToken();
+  if (!url || !token) return null;
+
+  try {
+    const headers = { Authorization: `Bearer ${token}` };
+    const opts: RequestInit = { headers, signal: AbortSignal.timeout(8000) };
+
+    // Fetch systems (live data)
+    const systemsRes = await fetch(
+      `${url}/api/collections/systems/records?filter=status%3D%22up%22&perPage=1&sort=-updated`,
+      opts
+    );
+    if (!systemsRes.ok) {
+      console.error("Beszel systems error:", systemsRes.status);
+      return null;
+    }
+
+    const systemsData = await systemsRes.json();
+    const system = systemsData.items?.[0];
+    if (!system) return null;
+
+    const info = system.info || {};
+
+    // Fetch latest detailed stats for this system
+    const statsRes = await fetch(
+      `${url}/api/collections/system_stats/records?filter=system%3D%22${system.id}%22%26%26type%3D%221m%22&sort=-created&perPage=1`,
+      opts
+    );
+
+    let detailedStats: Record<string, number> = {};
+    if (statsRes.ok) {
+      const statsData = await statsRes.json();
+      detailedStats = statsData.items?.[0]?.stats || {};
+    }
+
+    // Memory: detailed stats have m (total GB), mu (used GB), mp (%)
+    const memTotalGB = detailedStats.m || 0;
+    const memUsedGB = detailedStats.mu || 0;
+    const memPercent = info.mp ?? detailedStats.mp ?? 0;
+
+    // Disk: dp (%), d (total GB), du (used GB)
+    const diskTotalGB = detailedStats.d || 0;
+    const diskUsedGB = detailedStats.du || 0;
+    const diskPercent = info.dp ?? detailedStats.dp ?? 0;
+
+    // Swap
+    const swapGB = detailedStats.s || 0;
+
+    return {
+      cpu: Math.round((info.cpu ?? detailedStats.cpu ?? 0) * 10) / 10,
+      cpuTemp: Math.round(info.dt ?? detailedStats.dt ?? 0),
+      cpuCores: system.info?.c || 0,
+      cpuModel: system.host || system.name || "Unknown CPU",
+      memory: {
+        used: Math.round(memUsedGB * 1073741824), // GB to bytes
+        total: Math.round(memTotalGB * 1073741824),
+        percent: Math.round(memPercent * 10) / 10,
+      },
+      swap: {
+        used: Math.round(swapGB * 1073741824),
+        total: Math.round(swapGB * 1073741824),
+        percent: swapGB > 0 ? 100 : 0,
+      },
+      disk: {
+        used: Math.round(diskUsedGB * 1073741824),
+        total: Math.round(diskTotalGB * 1073741824),
+        percent: Math.round(diskPercent * 10) / 10,
+      },
+      uptime: system.info?.u || 0,
+      loadAvg: [0, 0, 0],
+      processes: 0,
+    };
+  } catch (error) {
+    console.error("Beszel fetch error:", error);
+    return null;
   }
 }
 
 export async function GET() {
   try {
-    // CPU usage
-    const cpuIdle = safeExec(
-      "top -bn1 | grep 'Cpu(s)' | awk '{print $8}'",
-      "75"
-    );
-    const cpuUsage = 100 - parseFloat(cpuIdle || "75");
+    // Try Beszel first
+    const beszelStats = await fetchBeszelStats();
+    if (beszelStats) {
+      return NextResponse.json(beszelStats);
+    }
 
-    // CPU temperature
-    const cpuTemp = parseFloat(
-      safeExec(
-        "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000}'",
-        "0"
-      )
-    );
-
-    // CPU info
-    const cpuCores = parseInt(safeExec("nproc", "4"), 10);
-    const cpuModel = safeExec(
-      "cat /proc/cpuinfo | grep 'model name' | head -1 | cut -d: -f2",
-      "Unknown CPU"
-    ).trim();
-
-    // Memory
-    const memInfo = safeExec("free -b | grep Mem");
-    const memParts = memInfo.split(/\s+/).filter(Boolean);
-    const memTotal = parseInt(memParts[1] || "0", 10);
-    const memUsed = parseInt(memParts[2] || "0", 10);
-    const memPercent = memTotal > 0 ? (memUsed / memTotal) * 100 : 0;
-
-    // Swap
-    const swapInfo = safeExec("free -b | grep Swap");
-    const swapParts = swapInfo.split(/\s+/).filter(Boolean);
-    const swapTotal = parseInt(swapParts[1] || "0", 10);
-    const swapUsed = parseInt(swapParts[2] || "0", 10);
-    const swapPercent = swapTotal > 0 ? (swapUsed / swapTotal) * 100 : 0;
-
-    // Disk
-    const diskInfo = safeExec("df -B1 / | tail -1");
-    const diskParts = diskInfo.split(/\s+/).filter(Boolean);
-    const diskTotal = parseInt(diskParts[1] || "0", 10);
-    const diskUsed = parseInt(diskParts[2] || "0", 10);
-    const diskPercent = diskTotal > 0 ? (diskUsed / diskTotal) * 100 : 0;
-
-    // Uptime
-    const uptimeSeconds = parseFloat(
-      safeExec("cat /proc/uptime | awk '{print $1}'", "0")
-    );
-
-    // Load average
-    const loadAvgStr = safeExec("cat /proc/loadavg", "0 0 0");
-    const loadAvg = loadAvgStr.split(" ").slice(0, 3).map(Number);
-
-    // Process count
-    const processes = parseInt(
-      safeExec("ps aux | wc -l", "0"),
-      10
-    );
-
+    // Fallback: return zeros if Beszel not configured
     return NextResponse.json({
-      cpu: Math.round(cpuUsage * 10) / 10,
-      cpuTemp: Math.round(cpuTemp),
-      cpuCores,
-      cpuModel: cpuModel || "Unknown CPU",
-      memory: {
-        used: memUsed,
-        total: memTotal,
-        percent: Math.round(memPercent * 10) / 10,
-      },
-      swap: {
-        used: swapUsed,
-        total: swapTotal,
-        percent: Math.round(swapPercent * 10) / 10,
-      },
-      disk: {
-        used: diskUsed,
-        total: diskTotal,
-        percent: Math.round(diskPercent * 10) / 10,
-      },
-      uptime: Math.round(uptimeSeconds),
-      loadAvg,
-      processes,
+      cpu: 0,
+      cpuTemp: 0,
+      cpuCores: 0,
+      cpuModel: "Beszel not configured",
+      memory: { used: 0, total: 1, percent: 0 },
+      swap: { used: 0, total: 1, percent: 0 },
+      disk: { used: 0, total: 1, percent: 0 },
+      uptime: 0,
+      loadAvg: [0, 0, 0],
+      processes: 0,
     });
   } catch (error) {
     console.error("System stats error:", error);

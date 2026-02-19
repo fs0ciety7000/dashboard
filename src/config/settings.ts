@@ -36,10 +36,10 @@ export const settings: DashboardSettings = {
   subtitle: "Homelab Dashboard",
   domain: "fs0ciety.org",
   weather: {
-    latitude: 48.8566,
-    longitude: 2.3522,
+    latitude: 50.4542,
+    longitude: 3.9522,
     units: "metric",
-    city: "Paris",
+    city: "Mons",
   },
   rssFeeds: [
     {
@@ -58,9 +58,19 @@ export const settings: DashboardSettings = {
       icon: "Rss",
     },
     {
-      name: "selfhosted (Reddit)",
-      url: "https://www.reddit.com/r/selfhosted/.rss",
+      name: "selfhosted",
+      url: "https://www.reddit.com/r/selfhosted/new/.rss",
       icon: "Server",
+    },
+    {
+      name: "Privacy Tools",
+      url: "https://www.reddit.com/r/privacytoolsIO/new/.rss",
+      icon: "Shield",
+    },
+    {
+      name: "Privacy",
+      url: "https://www.reddit.com/r/privacy/new/.rss",
+      icon: "Lock",
     },
   ],
   bookmarks: [
@@ -83,10 +93,16 @@ export const settings: DashboardSettings = {
       color: "#ef4444",
     },
     {
-      name: "Twitter / X",
-      url: "https://x.com",
-      icon: "AtSign",
-      color: "#3b82f6",
+      name: "Google Drive",
+      url: "https://drive.google.com",
+      icon: "HardDrive",
+      color: "#34d399",
+    },
+    {
+      name: "Gmail",
+      url: "https://mail.google.com",
+      icon: "Mail",
+      color: "#ef4444",
     },
     {
       name: "Discord",
@@ -99,6 +115,12 @@ export const settings: DashboardSettings = {
       url: "https://mail.proton.me",
       icon: "Mail",
       color: "#8b5cf6",
+    },
+    {
+      name: "Twitter / X",
+      url: "https://x.com",
+      icon: "AtSign",
+      color: "#3b82f6",
     },
   ],
   calendar: {},

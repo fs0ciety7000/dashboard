@@ -11,7 +11,6 @@ import {
   Cpu,
   ChevronLeft,
   ChevronRight,
-  Terminal,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -35,8 +34,9 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-6 border-b border-white/[0.04]">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center flex-shrink-0">
-          <Terminal className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="https://fs0ciety.org/logo.svg" alt="fs0ciety" className="w-full h-full object-contain" />
         </div>
         <AnimatePresence>
           {!collapsed && (

@@ -16,7 +16,8 @@ async function parseFeed(
     const res = await fetch(feedUrl, {
       next: { revalidate: 300 },
       headers: {
-        "User-Agent": "fs0ciety-dashboard/1.0",
+        "User-Agent": "Mozilla/5.0 (compatible; fs0ciety-dashboard/1.0)",
+        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
       },
     });
     if (!res.ok) return [];

@@ -85,10 +85,11 @@ async function fetchArr(service: ArrServiceConfig) {
       const folders = await diskRes.value.json();
       if (Array.isArray(folders)) {
         diskUsage = folders.reduce(
-          (acc: number, f: Record<string, number>) =>
-            acc + ((f.totalSpace ?? 0) - (f.freeSpace ?? 0)),
+          (acc: number, f: Record<string, unknown>) =>
+            acc + (Number(f.totalSpace ?? 0) - Number(f.freeSpace ?? 0)),
           0
         );
+        if (!isFinite(diskUsage)) diskUsage = 0;
       }
     }
 
