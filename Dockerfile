@@ -22,9 +22,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Create non-root user
+# Create non-root user with docker socket access
 RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+    adduser --system --uid 1001 nextjs && \
+    addgroup --system --gid 999 docker && \
+    addgroup nextjs docker
 
 # Copy built application
 COPY --from=builder /app/public ./public

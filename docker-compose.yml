@@ -5,11 +5,15 @@ services:
       dockerfile: Dockerfile
     container_name: fs0ciety-dashboard
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
       - HOSTNAME=0.0.0.0
       - PORT=3000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - traefik_public
       - internal

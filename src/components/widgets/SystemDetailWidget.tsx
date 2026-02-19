@@ -50,21 +50,16 @@ export function SystemDetailWidget() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fallback demo data
   const data: SystemStats = stats ?? {
-    cpu: 24,
-    cpuTemp: 52,
-    cpuCores: 16,
-    cpuModel: "AMD Ryzen 9 5950X",
-    memory: {
-      used: 27_917_287_424,
-      total: 68_719_476_736,
-      percent: 40.6,
-    },
-    swap: { used: 524_288_000, total: 8_589_934_592, percent: 6.1 },
-    uptime: 1_234_567,
-    loadAvg: [2.45, 1.87, 1.52],
-    processes: 342,
+    cpu: 0,
+    cpuTemp: 0,
+    cpuCores: 0,
+    cpuModel: "Loading...",
+    memory: { used: 0, total: 1, percent: 0 },
+    swap: { used: 0, total: 1, percent: 0 },
+    uptime: 0,
+    loadAvg: [0, 0, 0],
+    processes: 0,
   };
 
   return (

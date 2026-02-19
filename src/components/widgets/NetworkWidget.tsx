@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   ArrowUpFromLine,
@@ -9,7 +9,7 @@ import {
   Globe,
   Wifi,
 } from "lucide-react";
-import { formatBytes, formatSpeed } from "@/lib/utils";
+import { formatSpeed } from "@/lib/utils";
 import {
   AreaChart,
   Area,
@@ -18,44 +18,51 @@ import {
   XAxis,
 } from "recharts";
 
-// Generate demo chart data
-function generateNetworkData() {
-  const data = [];
-  const now = Date.now();
-  for (let i = 30; i >= 0; i--) {
-    data.push({
-      time: new Date(now - i * 2000).toLocaleTimeString("en", {
-        hour12: false,
-        minute: "2-digit",
-        second: "2-digit",
-      }),
-      download: Math.random() * 100_000_000 + 20_000_000,
-      upload: Math.random() * 20_000_000 + 5_000_000,
-    });
-  }
-  return data;
+interface NetworkData {
+  time: string;
+  download: number;
+  upload: number;
+}
+
+interface NetworkInfo {
+  interface: string;
+  gateway: string;
 }
 
 export function NetworkWidget() {
-  const [data, setData] = useState(generateNetworkData);
+  const [data, setData] = useState<NetworkData[]>([]);
+  const [netInfo, setNetInfo] = useState<NetworkInfo>({ interface: "—", gateway: "—" });
+
+  const fetchNetwork = useCallback(async () => {
+    try {
+      const res = await fetch("/api/network");
+      if (res.ok) {
+        const result = await res.json();
+        setNetInfo({ interface: result.interface, gateway: result.gateway });
+        setData((prev) => {
+          const newPoint: NetworkData = {
+            time: new Date().toLocaleTimeString("en", {
+              hour12: false,
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+            download: result.download ?? 0,
+            upload: result.upload ?? 0,
+          };
+          const updated = [...prev, newPoint];
+          return updated.slice(-30);
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+  }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setData((prev) => {
-        const newPoint = {
-          time: new Date().toLocaleTimeString("en", {
-            hour12: false,
-            minute: "2-digit",
-            second: "2-digit",
-          }),
-          download: Math.random() * 100_000_000 + 20_000_000,
-          upload: Math.random() * 20_000_000 + 5_000_000,
-        };
-        return [...prev.slice(1), newPoint];
-      });
-    }, 2000);
+    fetchNetwork();
+    const interval = setInterval(fetchNetwork, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchNetwork]);
 
   const latest = data[data.length - 1];
 
@@ -98,24 +105,18 @@ export function NetworkWidget() {
           </div>
         </div>
 
-        {/* Network info */}
         <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
           <div className="flex items-center gap-1.5">
             <Globe className="w-3 h-3 text-slate-600" />
-            <span className="text-slate-500">
-              eth0: 10.0.1.100
-            </span>
+            <span className="text-slate-500">{netInfo.interface}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Globe className="w-3 h-3 text-slate-600" />
-            <span className="text-slate-500">
-              Gateway: 10.0.1.1
-            </span>
+            <span className="text-slate-500">Gateway: {netInfo.gateway}</span>
           </div>
         </div>
       </div>
 
-      {/* Chart */}
       <div className="h-32 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
