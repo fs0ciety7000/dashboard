@@ -104,7 +104,7 @@ async function fetchQbittorrent(): Promise<DownloadItem[]> {
     if (cookie) headers["Cookie"] = cookie;
 
     const res = await fetch(
-      `${url}/api/v2/torrents/info?filter=all&limit=10&sort=added_on&reverse=true`,
+      `${url}/api/v2/torrents/info?filter=all&limit=5&sort=added_on&reverse=true`,
       { headers, signal: AbortSignal.timeout(10000) }
     );
     if (!res.ok) return [];

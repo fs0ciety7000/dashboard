@@ -59,17 +59,17 @@ export const settings: DashboardSettings = {
     },
     {
       name: "selfhosted",
-      url: "https://www.reddit.com/r/selfhosted/new/.rss",
+      url: "https://www.reddit.com/r/selfhosted.rss",
       icon: "Server",
     },
     {
       name: "Privacy Tools",
-      url: "https://www.reddit.com/r/privacytoolsIO/new/.rss",
+      url: "https://www.reddit.com/r/privacytoolsIO.rss",
       icon: "Shield",
     },
     {
       name: "Privacy",
-      url: "https://www.reddit.com/r/privacy/new/.rss",
+      url: "https://www.reddit.com/r/privacy.rss",
       icon: "Lock",
     },
   ],

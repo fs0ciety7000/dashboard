@@ -13,7 +13,7 @@ export async function GET() {
     const headers = { "X-Emby-Token": apiKey };
     const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
 
-    // First get a userId (required for /Items/Latest)
+    // First get a userId
     const usersRes = await fetch(`${url}/Users`, opts);
     if (!usersRes.ok) {
       console.error("Jellyfin Users error:", usersRes.status);
@@ -26,9 +26,9 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    // Get recently added items across all libraries
+    // Use /Items with SortBy=DateCreated for reliable metadata on actual files
     const res = await fetch(
-      `${url}/Users/${userId}/Items/Latest?Limit=10&Fields=MediaSources,MediaStreams,DateCreated`,
+      `${url}/Users/${userId}/Items?SortBy=DateCreated&SortOrder=Descending&Limit=12&Recursive=true&IncludeItemTypes=Movie,Episode,Audio&Fields=MediaSources,MediaStreams,DateCreated`,
       opts
     );
 
@@ -37,27 +37,26 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const items = await res.json();
+    const body = await res.json();
+    const items = body.Items ?? body ?? [];
 
     const recent = (Array.isArray(items) ? items : []).map(
       (item: Record<string, unknown>) => {
         const type =
           item.Type === "Movie"
             ? "movie"
-            : item.Type === "Episode" || item.Type === "Series"
+            : item.Type === "Episode"
               ? "tv"
-              : item.Type === "Audio" || item.Type === "MusicAlbum"
+              : item.Type === "Audio"
                 ? "music"
                 : "movie";
 
         // Build title
-        let title = "Unknown";
-        if (item.SeriesName) {
+        let title = (item.Name as string) || "Unknown";
+        if (item.Type === "Episode" && item.SeriesName) {
           const s_num = item.ParentIndexNumber ?? "";
           const e_num = item.IndexNumber ?? "";
           title = `${item.SeriesName} S${String(s_num).padStart(2, "0")}E${String(e_num).padStart(2, "0")}`;
-        } else {
-          title = (item.Name as string) || (item.OriginalTitle as string) || (item.AlbumArtist as string) || "Unknown";
         }
 
         // Get quality from media streams
@@ -76,7 +75,7 @@ export async function GET() {
             if (height >= 2160) quality = "4K";
             else if (height >= 1080) quality = "1080p";
             else if (height >= 720) quality = "720p";
-            else quality = `${height}p`;
+            else if (height > 0) quality = `${height}p`;
 
             const range = (video.VideoRange as string) ?? "";
             if (range && range !== "SDR") quality += ` ${range}`;
@@ -102,9 +101,10 @@ export async function GET() {
           else addedDate = `${diffDays} days ago`;
         }
 
-        // Build poster URL via proxy - use series primary image for episodes
+        // Build poster URL - use series image for episodes
         const imageItemId = item.SeriesId || item.Id;
-        const imageTag = (item.SeriesPrimaryImageTag || item.ImageTags && (item.ImageTags as Record<string, string>).Primary) || null;
+        const imageTags = item.ImageTags as Record<string, string> | undefined;
+        const imageTag = (item.SeriesPrimaryImageTag as string) || imageTags?.Primary || null;
         const poster = imageTag
           ? `/api/jellyfin/image?id=${imageItemId}&tag=${imageTag}`
           : null;

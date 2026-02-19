@@ -76,7 +76,7 @@ export function DownloadWidget() {
         </div>
       </div>
 
-      <div className="space-y-1 px-3 pb-3">
+      <div className="space-y-1 px-3 pb-3 max-h-[320px] overflow-y-auto scrollbar-thin">
         {loading ? (
           <div className="flex items-center justify-center py-8 text-slate-600">
             <Loader2 className="w-5 h-5 animate-spin" />

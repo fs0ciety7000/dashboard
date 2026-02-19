@@ -95,28 +95,45 @@ function parseICal(ical: string): CalendarEvent[] {
 }
 
 export async function GET() {
-  const calUrl = process.env.GOOGLE_CALENDAR_URL;
-  if (!calUrl) {
+  const calUrls = process.env.GOOGLE_CALENDAR_URL;
+  if (!calUrls) {
     return NextResponse.json([]);
   }
 
-  try {
-    const res = await fetch(calUrl, {
-      signal: AbortSignal.timeout(10000),
-      headers: { "User-Agent": "fs0ciety-dashboard/1.0" },
-    });
+  // Support multiple calendar URLs separated by semicolons
+  const urls = calUrls.split(";").map((u) => u.trim()).filter(Boolean);
+  const allEvents: CalendarEvent[] = [];
 
-    if (!res.ok) {
-      console.error("Calendar fetch error:", res.status);
-      return NextResponse.json([]);
+  for (const calUrl of urls) {
+    try {
+      const res = await fetch(calUrl, {
+        signal: AbortSignal.timeout(10000),
+        redirect: "follow",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; fs0ciety-dashboard/1.0)",
+          Accept: "text/calendar, text/plain, */*",
+        },
+      });
+
+      if (!res.ok) {
+        console.error(`Calendar fetch error for ${calUrl}: ${res.status} ${res.statusText}`);
+        continue;
+      }
+
+      const ical = await res.text();
+      if (!ical.includes("BEGIN:VCALENDAR")) {
+        console.error(`Calendar URL did not return iCal data: ${calUrl} (got ${ical.slice(0, 100)})`);
+        continue;
+      }
+
+      allEvents.push(...parseICal(ical));
+    } catch (error) {
+      console.error(`Calendar API error for ${calUrl}:`, error);
     }
-
-    const ical = await res.text();
-    const events = parseICal(ical);
-
-    return NextResponse.json(events.slice(0, 20));
-  } catch (error) {
-    console.error("Calendar API error:", error);
-    return NextResponse.json([]);
   }
+
+  // Sort combined events
+  allEvents.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+
+  return NextResponse.json(allEvents.slice(0, 20));
 }
