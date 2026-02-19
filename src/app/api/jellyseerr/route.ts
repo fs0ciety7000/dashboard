@@ -1,5 +1,46 @@
 import { NextResponse } from "next/server";
 
+interface JellyseerrRequest {
+  id: number;
+  type: string;
+  status: number;
+  createdAt: string;
+  media: {
+    tmdbId?: number;
+    tvdbId?: number;
+    mediaType?: string;
+    status?: number;
+  };
+  requestedBy: {
+    displayName?: string;
+    username?: string;
+    plexUsername?: string;
+    email?: string;
+  };
+}
+
+async function fetchTitle(
+  baseUrl: string,
+  headers: Record<string, string>,
+  type: string,
+  tmdbId: number
+): Promise<string> {
+  try {
+    const endpoint = type === "movie" ? "movie" : "tv";
+    const res = await fetch(`${baseUrl}/api/v1/${endpoint}/${tmdbId}`, {
+      headers,
+      signal: AbortSignal.timeout(8000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.title as string) || (data.name as string) || "Unknown";
+    }
+  } catch {
+    // Fallback
+  }
+  return "Unknown";
+}
+
 export async function GET() {
   const url = process.env.JELLYSEERR_URL?.replace(/\/+$/, "");
   const apiKey = process.env.JELLYSEERR_API_KEY;
@@ -21,24 +62,31 @@ export async function GET() {
     }
 
     const data = await res.json();
-    const results = (data.results ?? []).map(
-      (req: Record<string, unknown>) => {
-        const media = req.media as Record<string, unknown> | undefined;
-        const user = req.requestedBy as Record<string, unknown> | undefined;
+    const requests = (data.results ?? []) as JellyseerrRequest[];
 
-        // Map Jellyseerr status
+    // Fetch titles in parallel for all requests that have tmdbId
+    const results = await Promise.all(
+      requests.map(async (req) => {
+        const tmdbId = req.media?.tmdbId;
+        const type = req.type === "movie" ? "movie" : "tv";
+
+        let title = "Unknown";
+        if (tmdbId) {
+          title = await fetchTitle(url, headers, type, tmdbId);
+        }
+
+        // Map status
         let status = "pending";
-        const mediaStatus = media?.status as number;
+        const mediaStatus = req.media?.status;
         if (mediaStatus === 5) status = "available";
         else if (mediaStatus === 4) status = "processing";
         else if (mediaStatus === 3) status = "declined";
         else if (req.status === 2) status = "approved";
 
         // Format date
-        const createdAt = req.createdAt as string;
         let date = "";
-        if (createdAt) {
-          const d = new Date(createdAt);
+        if (req.createdAt) {
+          const d = new Date(req.createdAt);
           const now = new Date();
           const diffMs = now.getTime() - d.getTime();
           const diffHours = Math.floor(diffMs / 3600000);
@@ -49,31 +97,24 @@ export async function GET() {
           else date = `${diffDays} days ago`;
         }
 
-        // Get title - Jellyseerr stores it differently based on mediaType
-        const mediaInfo = media?.mediaInfo as Record<string, unknown> | undefined;
-        const title =
-          (media?.title as string) ||
-          (media?.name as string) ||
-          (mediaInfo?.title as string) ||
-          (req.type === "movie" ? "Unknown Movie" : "Unknown Show");
-
-        // Get user - try multiple fields
+        // User
+        const user = req.requestedBy;
         const requestedBy =
-          (user?.displayName as string) ||
-          (user?.username as string) ||
-          (user?.plexUsername as string) ||
-          (user?.email as string) ||
+          user?.displayName ||
+          user?.username ||
+          user?.plexUsername ||
+          user?.email ||
           "Unknown";
 
         return {
           id: req.id,
           title,
-          type: req.type === "movie" ? "movie" : "tv",
+          type,
           status,
           requestedBy,
           date,
         };
-      }
+      })
     );
 
     return NextResponse.json(results);
