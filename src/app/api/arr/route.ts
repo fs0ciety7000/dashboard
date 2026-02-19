@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
 interface ArrServiceConfig {
   name: string;
@@ -8,7 +9,10 @@ interface ArrServiceConfig {
 }
 
 async function fetchArr(service: ArrServiceConfig) {
-  if (!service.url || !service.apiKey) return null;
+  if (!service.url || !service.apiKey) {
+    console.log(`${service.name}: skipped (url=${!!service.url}, apiKey=${!!service.apiKey})`);
+    return null;
+  }
 
   const base = service.url.replace(/\/+$/, "");
   const headers = { "X-Api-Key": service.apiKey };
@@ -30,8 +34,10 @@ async function fetchArr(service: ArrServiceConfig) {
     let episodes: number | null = null;
     let missing = 0;
 
-    if (statsRes.status === "fulfilled" && !statsRes.value.ok) {
-      console.error(`${service.name} stats error:`, statsRes.value.status, await statsRes.value.text().catch(() => ""));
+    if (statsRes.status === "rejected") {
+      console.error(`${service.name} stats fetch failed:`, statsRes.reason);
+    } else if (!statsRes.value.ok) {
+      console.error(`${service.name} stats HTTP ${statsRes.value.status}:`, await statsRes.value.text().catch(() => ""));
     }
     if (statsRes.status === "fulfilled" && statsRes.value.ok) {
       const items = await statsRes.value.json();

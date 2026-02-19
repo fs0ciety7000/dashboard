@@ -13,6 +13,7 @@ interface RecentItem {
   addedDate: string;
   quality: string;
   size: number;
+  poster: string | null;
 }
 
 const typeIcons = {
@@ -81,11 +82,22 @@ export function RecentlyAddedWidget() {
                 transition={{ delay: i * 0.05 }}
                 className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
               >
-                <div
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${colors}`}
-                >
-                  <Icon className="w-4 h-4" />
-                </div>
+                {item.poster ? (
+                  <div className="w-10 h-14 rounded-md overflow-hidden flex-shrink-0 bg-slate-800">
+                    <img
+                      src={item.poster}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className={`w-10 h-14 rounded-md flex items-center justify-center flex-shrink-0 border ${colors}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-slate-300 truncate">{item.title}</p>
                   <div className="flex items-center gap-2 mt-0.5">

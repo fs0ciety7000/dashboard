@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "node:fs";
+export const dynamic = "force-dynamic";
 
 interface MountInfo {
   device: string;

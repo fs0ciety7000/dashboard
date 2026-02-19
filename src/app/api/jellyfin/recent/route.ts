@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const url = process.env.JELLYFIN_URL?.replace(/\/+$/, "");
@@ -99,6 +100,13 @@ export async function GET() {
           else addedDate = `${diffDays} days ago`;
         }
 
+        // Build poster URL via proxy - use series primary image for episodes
+        const imageItemId = item.SeriesId || item.Id;
+        const imageTag = (item.SeriesPrimaryImageTag || item.ImageTags && (item.ImageTags as Record<string, string>).Primary) || null;
+        const poster = imageTag
+          ? `/api/jellyfin/image?id=${imageItemId}&tag=${imageTag}`
+          : null;
+
         return {
           id: item.Id,
           title,
@@ -106,6 +114,7 @@ export async function GET() {
           addedDate,
           quality,
           size,
+          poster,
         };
       }
     );
