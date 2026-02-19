@@ -41,7 +41,7 @@ export async function GET() {
     testService("immich", process.env.IMMICH_URL, "/api/server/info", {
       "x-api-key": process.env.IMMICH_API_KEY ?? "",
     }),
-    testService("jellystat", process.env.JELLYSTAT_URL, "/api/getLibraryCardStats", {
+    testService("jellystat", process.env.JELLYSTAT_URL, "/stats/getLibraryCardStats", {
       "x-api-token": process.env.JELLYSTAT_API_KEY ?? "",
       "Content-Type": "application/json",
     }),

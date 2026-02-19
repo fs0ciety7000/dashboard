@@ -19,7 +19,7 @@ export async function GET() {
     // Try library stats
     /* eslint-disable @typescript-eslint/no-explicit-any */
     let statsData: any[] = [];
-    const statsRes = await fetch(`${url}/api/getLibraryCardStats`, opts);
+    const statsRes = await fetch(`${url}/stats/getLibraryCardStats`, opts);
     if (statsRes.ok) {
       const body = await statsRes.json();
       statsData = Array.isArray(body) ? body : [];
@@ -29,7 +29,7 @@ export async function GET() {
 
     // Fetch most viewed movies
     let moviesData: any[] = [];
-    const moviesRes = await fetch(`${url}/api/getMostViewedByType`, {
+    const moviesRes = await fetch(`${url}/stats/getMostViewedByType`, {
       ...opts,
       method: "POST",
       body: JSON.stringify({ type: "Movie", days: 30 }),
@@ -43,7 +43,7 @@ export async function GET() {
 
     // Fetch most viewed shows
     let showsData: any[] = [];
-    const showsRes = await fetch(`${url}/api/getMostViewedByType`, {
+    const showsRes = await fetch(`${url}/stats/getMostViewedByType`, {
       ...opts,
       method: "POST",
       body: JSON.stringify({ type: "Series", days: 30 }),

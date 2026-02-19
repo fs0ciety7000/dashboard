@@ -13,17 +13,17 @@ export async function GET() {
     const headers: Record<string, string> = { Authorization: `token ${token}` };
     const opts: RequestInit = { headers, signal: AbortSignal.timeout(10000) };
 
-    // Try user repos first (most reliable for personal instances)
+    // Try repos/search first (requires fewer token scopes)
     let res = await fetch(
-      `${url}/api/v1/user/repos?sort=updated&order=desc&limit=15`,
+      `${url}/api/v1/repos/search?sort=updated&order=desc&limit=15`,
       opts
     );
 
-    // Fallback to repos/search if user endpoint fails
+    // Fallback to user/repos if search endpoint fails
     if (!res.ok) {
-      console.error("Forgejo user/repos error:", res.status, await res.text().catch(() => ""));
+      console.error("Forgejo repos/search error:", res.status, await res.text().catch(() => ""));
       res = await fetch(
-        `${url}/api/v1/repos/search?sort=updated&order=desc&limit=15`,
+        `${url}/api/v1/user/repos?sort=updated&order=desc&limit=15`,
         { headers, signal: AbortSignal.timeout(10000) }
       );
     }
