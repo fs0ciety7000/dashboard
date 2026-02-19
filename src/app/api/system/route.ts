@@ -10,35 +10,52 @@ async function getBeszelToken(): Promise<string | null> {
   const email = process.env.BESZEL_EMAIL;
   const password = process.env.BESZEL_PASSWORD;
 
-  if (!url || !email || !password) return null;
+  if (!url || !email || !password) {
+    console.error("Beszel: missing env vars", { url: !!url, email: !!email, password: !!password });
+    return null;
+  }
 
   // Re-use cached token if still valid (refresh 10 min before expiry)
   if (beszelToken && Date.now() < beszelTokenExpiry - 600000) {
     return beszelToken;
   }
 
-  try {
-    const res = await fetch(`${url}/api/collections/users/auth-with-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identity: email, password }),
-      signal: AbortSignal.timeout(8000),
-    });
+  const body = JSON.stringify({ identity: email, password });
+  const headers = { "Content-Type": "application/json" };
 
-    if (!res.ok) {
-      console.error("Beszel auth failed:", res.status);
-      return null;
+  // Try _superusers first (admin accounts), then users
+  const collections = ["_superusers", "users"];
+
+  for (const collection of collections) {
+    try {
+      const authUrl = `${url}/api/collections/${collection}/auth-with-password`;
+      console.log(`Beszel: trying auth via ${collection}...`);
+      const res = await fetch(authUrl, {
+        method: "POST",
+        headers,
+        body,
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        console.error(`Beszel auth ${collection}: HTTP ${res.status} - ${text.slice(0, 200)}`);
+        continue;
+      }
+
+      const data = await res.json();
+      beszelToken = data.token;
+      // PocketBase tokens are valid for ~2 weeks, refresh every hour
+      beszelTokenExpiry = Date.now() + 3600000;
+      console.log(`Beszel: authenticated via ${collection}`);
+      return beszelToken;
+    } catch (error) {
+      console.error(`Beszel auth ${collection} error:`, error);
     }
-
-    const data = await res.json();
-    beszelToken = data.token;
-    // PocketBase tokens are valid for ~2 weeks, refresh every hour
-    beszelTokenExpiry = Date.now() + 3600000;
-    return beszelToken;
-  } catch (error) {
-    console.error("Beszel auth error:", error);
-    return null;
   }
+
+  console.error("Beszel: all auth methods failed");
+  return null;
 }
 
 async function fetchBeszelStats() {
@@ -62,8 +79,12 @@ async function fetchBeszelStats() {
 
     const systemsData = await systemsRes.json();
     const system = systemsData.items?.[0];
-    if (!system) return null;
+    if (!system) {
+      console.error("Beszel: no active systems found");
+      return null;
+    }
 
+    console.log("Beszel system:", system.id, system.name, "info keys:", Object.keys(system.info || {}));
     const info = system.info || {};
 
     // Fetch latest detailed stats for this system
@@ -75,7 +96,11 @@ async function fetchBeszelStats() {
     let detailedStats: Record<string, number> = {};
     if (statsRes.ok) {
       const statsData = await statsRes.json();
-      detailedStats = statsData.items?.[0]?.stats || {};
+      const statsRecord = statsData.items?.[0];
+      detailedStats = statsRecord?.stats || statsRecord || {};
+      console.log("Beszel stats keys:", Object.keys(detailedStats));
+    } else {
+      console.error("Beszel stats error:", statsRes.status);
     }
 
     // Memory: detailed stats have m (total GB), mu (used GB), mp (%)

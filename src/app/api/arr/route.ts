@@ -81,14 +81,28 @@ async function fetchArr(service: ArrServiceConfig) {
     }
 
     let diskUsage = 0;
-    if (diskRes.status === "fulfilled" && diskRes.value.ok) {
+    if (diskRes.status === "rejected") {
+      console.error(`${service.name} diskspace fetch failed:`, diskRes.reason);
+    } else if (!diskRes.value.ok) {
+      console.error(`${service.name} diskspace HTTP ${diskRes.value.status}:`, await diskRes.value.text().catch(() => ""));
+    } else {
       const folders = await diskRes.value.json();
-      if (Array.isArray(folders)) {
-        diskUsage = folders.reduce(
-          (acc: number, f: Record<string, unknown>) =>
-            acc + (Number(f.totalSpace ?? 0) - Number(f.freeSpace ?? 0)),
-          0
-        );
+      console.log(`${service.name} diskspace raw:`, JSON.stringify(folders).slice(0, 500));
+      if (Array.isArray(folders) && folders.length > 0) {
+        // Sonarr/Radarr v3 uses totalSpace/freeSpace, some versions use total/free
+        const firstFolder = folders[0];
+        const totalKey = "totalSpace" in firstFolder ? "totalSpace" : "total" in firstFolder ? "total" : null;
+        const freeKey = "freeSpace" in firstFolder ? "freeSpace" : "free" in firstFolder ? "free" : null;
+
+        if (totalKey && freeKey) {
+          diskUsage = folders.reduce(
+            (acc: number, f: Record<string, unknown>) =>
+              acc + (Number(f[totalKey] ?? 0) - Number(f[freeKey] ?? 0)),
+            0
+          );
+        } else {
+          console.error(`${service.name} diskspace: unknown field names:`, Object.keys(firstFolder));
+        }
         if (!isFinite(diskUsage)) diskUsage = 0;
       }
     }

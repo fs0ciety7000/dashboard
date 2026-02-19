@@ -40,6 +40,18 @@ export async function GET() {
     const body = await res.json();
     const items = body.Items ?? body ?? [];
 
+    // Log first item for debugging
+    if (Array.isArray(items) && items.length > 0) {
+      const sample = items[0];
+      console.log("Jellyfin first item keys:", Object.keys(sample));
+      console.log("Jellyfin first item sample:", JSON.stringify({
+        Name: sample.Name, Type: sample.Type, SeriesName: sample.SeriesName,
+        OriginalTitle: sample.OriginalTitle, ProductionYear: sample.ProductionYear,
+        Album: sample.Album, AlbumArtist: sample.AlbumArtist,
+        Artists: sample.Artists, Id: sample.Id,
+      }));
+    }
+
     const recent = (Array.isArray(items) ? items : []).map(
       (item: Record<string, unknown>) => {
         const type =
@@ -51,12 +63,19 @@ export async function GET() {
                 ? "music"
                 : "movie";
 
-        // Build title
-        let title = (item.Name as string) || "Unknown";
+        // Build title with extensive fallbacks
+        let title = "";
         if (item.Type === "Episode" && item.SeriesName) {
           const s_num = item.ParentIndexNumber ?? "";
           const e_num = item.IndexNumber ?? "";
           title = `${item.SeriesName} S${String(s_num).padStart(2, "0")}E${String(e_num).padStart(2, "0")}`;
+        } else if (item.Type === "Audio") {
+          const artists = (item.Artists as string[]) ?? [];
+          const artistName = artists[0] || (item.AlbumArtist as string) || "";
+          const trackName = (item.Name as string) || (item.OriginalTitle as string) || "";
+          title = artistName && trackName ? `${artistName} - ${trackName}` : trackName || artistName || (item.Album as string) || "Unknown";
+        } else {
+          title = (item.Name as string) || (item.OriginalTitle as string) || "Unknown";
         }
 
         // Get quality from media streams
